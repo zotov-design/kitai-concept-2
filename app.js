@@ -1,7 +1,7 @@
 const all=(selector,root=document)=>[...root.querySelectorAll(selector)];
 const motion=matchMedia('(prefers-reduced-motion: reduce)');
 // Native scrolling stays untouched. Each element appears only once.
-const reveals=all('.reveal');
+const reveals=all('.reveal').filter(el=>!el.closest('.tours'));
 let observer;
 if('IntersectionObserver' in window&&!motion.matches){
   observer=new IntersectionObserver(entries=>entries.forEach(({target,isIntersecting})=>{if(isIntersecting){target.classList.remove('is-pending');observer.unobserve(target);}}),{threshold:0,rootMargin:'0px 0px -24px 0px'});
