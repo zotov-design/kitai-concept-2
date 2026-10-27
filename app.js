@@ -37,6 +37,52 @@ function createCarousel(id,cardSelector){
   rail.addEventListener('scroll',()=>{if(!queued){queued=true;requestAnimationFrame(update);}},{passive:true});
   rail.addEventListener('keydown',e=>{if(e.target!==rail)return;let index;if(e.key==='ArrowRight')index=active+1;if(e.key==='ArrowLeft')index=active-1;if(e.key==='Home')index=0;if(e.key==='End')index=cards.length-1;if(index!==undefined){e.preventDefault();go(index);}});
   new ResizeObserver(update).observe(rail);update();
+  if(id==='tour-rail')enableMouseDrag(rail,cards,go);
+}
+
+// Mouse dragging complements native touch scrolling. A short click still opens a card.
+function enableMouseDrag(rail,cards,go){
+  let pointer=null,suppressClick=false;
+  all('img',rail).forEach(image=>{image.draggable=false;});
+  rail.addEventListener('dragstart',event=>event.preventDefault());
+  rail.addEventListener('pointerdown',event=>{
+    suppressClick=false;
+    if(event.pointerType!=='mouse'||event.button!==0||!event.isPrimary)return;
+    // Stop an earlier arrow/dot animation before measuring the drag start.
+    rail.scrollTo({left:rail.scrollLeft,behavior:'instant'});
+    pointer={id:event.pointerId,x:event.clientX,y:event.clientY,left:rail.scrollLeft,dragging:false};
+  });
+  document.addEventListener('pointermove',event=>{
+    if(!pointer||event.pointerId!==pointer.id)return;
+    if(!(event.buttons&1)){finish(false);return;}
+    const dx=event.clientX-pointer.x,dy=event.clientY-pointer.y;
+    if(!pointer.dragging){
+      if(Math.abs(dx)<7||Math.abs(dx)<=Math.abs(dy))return;
+      pointer.dragging=true;suppressClick=true;
+      rail.classList.add('is-dragging');
+      rail.setPointerCapture(event.pointerId);
+    }
+    event.preventDefault();
+    rail.scrollLeft=pointer.left-dx;
+  },{passive:false});
+  function finish(snap){
+    if(!pointer)return;
+    const ended=pointer;pointer=null;
+    rail.classList.remove('is-dragging');
+    if(rail.hasPointerCapture(ended.id))rail.releasePointerCapture(ended.id);
+    if(!ended.dragging||!snap)return;
+    const start=rail.getBoundingClientRect().left+parseFloat(getComputedStyle(rail).paddingLeft);
+    const distances=cards.map(card=>Math.abs(card.getBoundingClientRect().left-start));
+    go(distances.indexOf(Math.min(...distances)));
+  }
+  document.addEventListener('pointerup',event=>{if(pointer?.id===event.pointerId)finish(true);});
+  document.addEventListener('pointercancel',event=>{if(pointer?.id===event.pointerId)finish(false);});
+  rail.addEventListener('lostpointercapture',()=>finish(false));
+  window.addEventListener('blur',()=>finish(false));
+  rail.addEventListener('click',event=>{
+    if(!suppressClick||event.detail===0)return;
+    suppressClick=false;event.preventDefault();event.stopImmediatePropagation();
+  },true);
 }
 createCarousel('destination-rail','.destination-card');createCarousel('tour-rail','.tour-card');
 
